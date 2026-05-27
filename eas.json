@@ -1,0 +1,25 @@
+{
+  "cli": {
+    "version": ">= 18.12.2",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CHAT_APP": "https://chat-backend-mjfk.onrender.com",
+        "EXPO_PUBLIC_CHAT_WS_APP": "wss://chat-backend-mjfk.onrender.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
