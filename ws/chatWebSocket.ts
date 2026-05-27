@@ -74,8 +74,6 @@ class ChatWebSocket {
     }
 
 
-
-
     this.ws.onclose = ()=>{
       this._stopPing();
       this.disconnectHandlers.forEach(x=>x())
@@ -103,7 +101,6 @@ class ChatWebSocket {
       this.pingTime = null;
     }
   }
-
 
   private _scheduleReconnect (){
     this.reconnectTimer = setTimeout(()=>{

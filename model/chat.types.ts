@@ -15,7 +15,7 @@ export interface ChatUser {
   is_online: boolean;
 }
 
-// ── Eventos WebSocket (Servidor → Cliente) ────────────────────────────────────
+
 
 export type WsEvent =
   | { type: "group_message"; message: ChatMessage }
@@ -27,14 +27,14 @@ export type WsEvent =
   | { type: "pong" }
   | { type: "error"; message: string };
 
-// ── Mensajes WebSocket (Cliente → Servidor) ────────────────────────────────────
+
 
 export type WsClientEvent =
   | { type: "group_message"; content: string }
   | { type: "dm"; to: string; content: string }
   | { type: "ping" };
 
-// ── Estado del contexto ───────────────────────────────────────────────────────
+
 
 export type ChatConnectionState =
   | "idle"
