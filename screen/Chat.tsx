@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { chatStyles, getStylesChatColors } from "@/screen/Chat.style";
 import { useChatContext } from "@/provider/chatContext";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "@/model/chat.types";
 import { DateUtil } from "@/utils/DateUtil";
 
@@ -34,6 +34,11 @@ export function Chat() {
     currentUser,
     onlineUsers,
     sendGroupMessage,
+    sendTyping,
+    sendStopTyping,
+    sendMarkRead,
+    typingUsers,
+    readReceipts,
     joinChat,
     leaveChat,
     isLoadingSession,
@@ -43,6 +48,8 @@ export function Chat() {
   const [email, setEmail] = useState<string>("");
   const [emailError, setEmailError] = useState<string>("");
   const [joining, setJoining] = useState<boolean>(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
 
   const showModal = !isLoadingSession && !currentUser;
 
@@ -65,10 +72,40 @@ export function Chat() {
     }
   };
 
+  const handleChangeText = (text: string) => {
+    setMessage(text);
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      sendTyping();
+    }
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      sendStopTyping();
+    }, 2000);
+  };
+
   const sendMessage = () => {
+    groupMessages.forEach((msg) => {
+      if (msg.sender_id !== currentUser?.id) {
+        sendMarkRead(msg.id);
+      }
+    });
     sendGroupMessage(message);
     setMessage("");
+    isTypingRef.current = false;
+    sendStopTyping();
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, []);
 
   const isMessageIncoming = (msg: ChatMessage) => {
     return msg.sender_id !== currentUser?.id;
@@ -76,7 +113,6 @@ export function Chat() {
 
   return (
     <SafeAreaView style={[chatStyles.safeArea, { backgroundColor }]}>
-      {/* Modal de ingreso por correo */}
       <Modal visible={showModal} transparent animationType="fade">
         <View style={emailStyles.overlay}>
           <View style={[emailStyles.card, { backgroundColor }]}>
@@ -186,29 +222,51 @@ export function Chat() {
                     : chatStyles.outgoingBubble,
                 ]}
               >
-                {isMessageIncoming(msg) && <Text style={[
-                  chatStyles.messageSenderName,
-                  {color: secondaryTextColor},
-                ]}>
-                  {msg.sender_nickname}
-                </Text>}
+                {isMessageIncoming(msg) && (
+                  <Text style={[
+                    chatStyles.messageSenderName,
+                    {color: secondaryTextColor},
+                  ]}>
+                    {msg.sender_nickname}
+                  </Text>
+                )}
                 <Text
                   style={[chatStyles.messageText, { color: primaryTextColor }]}
                 >
                   {msg.content}
                 </Text>
-                <Text
-                  style={[
-                    chatStyles.messageTime,
-                    { color: secondaryTextColor },
-                  ]}
-                >
-                  {DateUtil.getHour(msg.timestamp)}
-                </Text>
+                <View style={chatStyles.messageFooter}>
+                  <Text
+                    style={[
+                      chatStyles.messageTime,
+                      { color: secondaryTextColor },
+                    ]}
+                  >
+                    {DateUtil.getHour(msg.timestamp)}
+                  </Text>
+                  {!isMessageIncoming(msg) && (
+                    <Text
+                      style={[
+                        chatStyles.readStatus,
+                        { color: secondaryTextColor },
+                      ]}
+                    >
+                      {readReceipts[msg.id]?.length ? "\u2713\u2713" : "\u2713"}
+                    </Text>
+                  )}
+                </View>
               </View>
             </View>
           ))}
         </ScrollView>
+
+        {Object.keys(typingUsers).length > 0 && (
+          <View style={chatStyles.typingContainer}>
+            <Text style={[chatStyles.typingText, { color: secondaryTextColor }]}>
+              {Object.values(typingUsers).join(", ")} escribiendo...
+            </Text>
+          </View>
+        )}
 
         <View
           style={[
@@ -220,7 +278,7 @@ export function Chat() {
             <TextInput
               multiline={true}
               value={message}
-              onChangeText={setMessage}
+              onChangeText={handleChangeText}
               scrollEnabled={true}
               placeholder="Escribe un mensaje"
               placeholderTextColor={secondaryTextColor}

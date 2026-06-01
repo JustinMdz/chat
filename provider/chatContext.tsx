@@ -9,6 +9,7 @@ const ChatContext = createContext<ChatContextValue|null>(null);
 
 const STORAGE_KEY_USER = "@key_user";
 const STORAGE_KEY_TOKEN = "@key_token";
+const TYPING_TIMEOUT_MS = 3_000;
 
 export function ChatProvider({ children }:{children:ReactNode|ReactNode[]}) {
 
@@ -19,6 +20,9 @@ export function ChatProvider({ children }:{children:ReactNode|ReactNode[]}) {
     const [onlineUsers,setOnlineUsers] = useState<ChatUser[]>([]);
     const [groupMessages,setGroupMessages] = useState<ChatMessage[]>([]);
     const [directMessages,setDirectMessages] = useState<Record<string, ChatMessage[]>>({});
+    const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+    const [readReceipts, setReadReceipts] = useState<Record<string, {seen_by:string; seen_at:string}[]>>({});
+    const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
 
     const currentUserRef = useRef<ChatUser|null>(null);
@@ -87,6 +91,45 @@ export function ChatProvider({ children }:{children:ReactNode|ReactNode[]}) {
             case "user_left":
                 setOnlineUsers((prev)=>prev.filter(item=>item.id!==event.user_id));
                 break;
+            case "typing": {
+                const {user_id, nickname} = event;
+                if (user_id === currentUserRef.current?.id) break;
+                setTypingUsers((prev) => ({...prev, [user_id]: nickname}));
+                if (typingTimersRef.current[user_id]) {
+                    clearTimeout(typingTimersRef.current[user_id]);
+                }
+                typingTimersRef.current[user_id] = setTimeout(() => {
+                    setTypingUsers((prev) => {
+                        const next = {...prev};
+                        delete next[user_id];
+                        return next;
+                    });
+                    delete typingTimersRef.current[user_id];
+                }, TYPING_TIMEOUT_MS);
+                break;
+            }
+            case "stop_typing": {
+                const {user_id} = event;
+                setTypingUsers((prev) => {
+                    const next = {...prev};
+                    delete next[user_id];
+                    return next;
+                });
+                if (typingTimersRef.current[user_id]) {
+                    clearTimeout(typingTimersRef.current[user_id]);
+                    delete typingTimersRef.current[user_id];
+                }
+                break;
+            }
+            case "message_seen": {
+                const {message_id, seen_by, seen_at} = event;
+                setReadReceipts((prev) => {
+                    const existing = prev[message_id] ?? [];
+                    if (existing.some((r) => r.seen_by === seen_by)) return prev;
+                    return {...prev, [message_id]: [...existing, {seen_by, seen_at}]};
+                });
+                break;
+            }
             case "error":
                 console.log("Chat event error: ",event);
                 break;
@@ -164,6 +207,18 @@ export function ChatProvider({ children }:{children:ReactNode|ReactNode[]}) {
         chatWebSocket.sendDM(toUserTo,content);
     },[])
 
+    const sendTyping = useCallback(()=>{
+        chatWebSocket.sendTyping();
+    },[])
+
+    const sendStopTyping = useCallback(()=>{
+        chatWebSocket.sendStopTyping();
+    },[])
+
+    const sendMarkRead = useCallback((messageId:string)=>{
+        chatWebSocket.sendMarkRead(messageId);
+    },[])
+
     const loadDirectMessages = useCallback(async (otherUserId:string)=>{
         if(!tokenRef.current){
             return;
@@ -180,6 +235,12 @@ export function ChatProvider({ children }:{children:ReactNode|ReactNode[]}) {
     },[])
 
 
+    useEffect(() => {
+        return () => {
+            Object.values(typingTimersRef.current).forEach(clearTimeout);
+        };
+    }, []);
+
     const values = useMemo<ChatContextValue>(
         ()=>({
             currentUser,
@@ -188,10 +249,15 @@ export function ChatProvider({ children }:{children:ReactNode|ReactNode[]}) {
             connectionState,
             onlineUsers,
             directMessages,
+            typingUsers,
+            readReceipts,
             joinChat,
             leaveChat,
             sendDirectMessage,
             sendGroupMessage,
+            sendTyping,
+            sendStopTyping,
+            sendMarkRead,
             loadDirectMessages,
             groupMessages
         }),[currentUser,
@@ -200,10 +266,15 @@ export function ChatProvider({ children }:{children:ReactNode|ReactNode[]}) {
             connectionState,
             onlineUsers,
             directMessages,
+            typingUsers,
+            readReceipts,
             joinChat,
             leaveChat,
             sendDirectMessage,
             sendGroupMessage,
+            sendTyping,
+            sendStopTyping,
+            sendMarkRead,
             loadDirectMessages,
             groupMessages],
     )

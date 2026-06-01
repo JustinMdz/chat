@@ -106,6 +106,25 @@ export const chatStyles = StyleSheet.create({
         fontWeight: "600",
         textAlign: "left"
     },
+    messageFooter: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        marginTop: 8,
+        gap: 4,
+    },
+    readStatus: {
+        fontSize: 11,
+        fontWeight: "600",
+    },
+    typingContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+    },
+    typingText: {
+        fontSize: 12,
+        fontStyle: "italic",
+    },
     composerWrapper: {
         borderTopWidth: 1,
         paddingHorizontal: 16,

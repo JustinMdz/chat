@@ -132,6 +132,18 @@ class ChatWebSocket {
     this._send({type:"dm", to:toUserId, content});
   }
 
+  sendTyping():void{
+    this._send({type:"typing"});
+  }
+
+  sendStopTyping():void{
+    this._send({type:"stop_typing"});
+  }
+
+  sendMarkRead(messageId:string):void{
+    this._send({type:"mark_read", message_id: messageId});
+  }
+
   private _send(event:WsClientEvent):void{
     if(this.ws?.readyState === WebSocket.OPEN){
       this.ws?.send(JSON.stringify(event));
